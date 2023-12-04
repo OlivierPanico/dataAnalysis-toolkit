@@ -13,7 +13,19 @@ import numpy.ma as ma
 
 from scipy.ndimage import uniform_filter #Coarse graining
 from scipy.optimize import curve_fit   
-    
+
+
+def get_closest_ind(L,val):
+    ires=0
+    diff_min=abs(L[0]-val)
+    for i in range(len(L)):
+        diff=abs(L[i]-val)
+        if diff<diff_min:
+            ires = i
+            diff_min = diff
+    return ires
+
+
 def coarse_grain(array, t_avg, x_avg, mode='constant'):
     return uniform_filter(array, size=(t_avg, x_avg), mode=mode)
     

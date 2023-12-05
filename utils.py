@@ -115,7 +115,37 @@ def remove_outliers(array, q_inf, q_sup):
 
 
 
-def split_2D_array(A, nperseg, zero_padding=False):
+def split_1d_array(A, nperseg, noverlap=0, zero_padding=False):
+    '''
+    Split a 1d array on segments of nperseg pts, with an overlapping noverlap
+    If the decomposition is not exact, will cast away the last segment
+    unless zero_padding =True, then will fill it with zeros
+    '''
+    n = len(A)
+    nbseg = int(n/nperseg)
+
+    #If the last segment is not complete
+    #print(nbseg, nperseg, nt)
+    if (nbseg*nperseg)<n:
+        #If zero padding then we fill the rest of the last segment with 0
+        if zero_padding:
+            B = np.zeros((nperseg*(nbseg+1)))
+            B[:n] = A
+        #If not zero padding then we drop the last segment because incomplete
+        else:
+            B = np.zeros((nperseg*nbseg))
+            B = A[:nbseg*nperseg] 
+    else:
+        B = np.zeros((nperseg*nbseg))
+        B = A
+    
+    splitted_sig = np.split(B,nbseg)
+    splitted_sig = np.array(splitted_sig)
+    
+    return splitted_sig
+
+
+def split_2d_array(A, nperseg, zero_padding=False):
     '''
     Split an array into segments on a third dimension
     For now noverlap is not functional 
@@ -124,7 +154,7 @@ def split_2D_array(A, nperseg, zero_padding=False):
     #Calculate the number of overlapping segments
     nbseg = int(nt/nperseg)
     #If the last segment is not complete
-    print(nbseg, nperseg, nt)
+    #print(nbseg, nperseg, nt)
     if (nbseg*nperseg)<nt:
         #If zero padding then we fill the rest of the last segment with 0
         if zero_padding:

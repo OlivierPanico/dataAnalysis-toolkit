@@ -7,12 +7,12 @@ import numpy as np
 from numpy import fft
 from math import floor
 import matplotlib.pyplot as plt
-import plotting
 from scipy.signal import coherence, filtfilt, detrend
 import pandas as pd 
 
-''' My imports '''
-from utils import normalize_signal
+''' local imports '''
+from dataAnalysis.utils import normalize_signal, split_1d_array
+
 
 # import global_params
 # from read_profiles_pandas import get_clean_dyn_characteristic, find_nearest
@@ -80,7 +80,7 @@ def chunk_data(data,window_size,overlap_size=0,flatten_inside_window=True):
 #  Main function    
 # =============================================================================
     
-def compute_spectral_data(x, y, nfft=512,noverlap=256, dt=1E-5, norm=True, window=None,coherence=False, **kwargs):
+def compute_spectral_data(x, y, nfft=512,noverlap=256, dt=1E-5, norm=True, window=None,coherence=False,nan_treatment=False, **kwargs):
     '''
     Compute spectrum and correlation of signal x and y.
     If x=y, the result is a self-spectrum while for x different from y the cross-spectrum is computed.
@@ -134,31 +134,35 @@ def compute_spectral_data(x, y, nfft=512,noverlap=256, dt=1E-5, norm=True, windo
         
         ''' Slicing the original array into nseg segments'''
         if noverlap is None:
-            sig = np.reshape(sig[:nseg*nfft], (nseg, -1))  #Old method, still here to compare with the function chunk data
+            sig = split_1d_array(sig, nperseg=nfft)
+            print('shape splitted sig: ', np.shape(sig))
+            # sig = np.reshape(sig[:nseg*nfft], (nseg, -1))  #Old method, still here to compare with the function chunk data
         else: 
             # print('chunking data')
             sig = chunk_data(np.array(sig), nfft, overlap_size=noverlap)    #An overlap of 0 will give the same result as noverlap=None
-            
-            
-        sig = pd.DataFrame(sig)
-        sig_list = [] #temporary array to fill the 'correct slices'
-    
-        ''' If there are too many NaN in a nseg will remove the whole list
-        If the number of NaN is acceptable, will interpolate them with first ok value by linear method'''
-        for j in range(nseg): 
-            current_sig = sig.iloc[j,:] #Take only a segment
-            nancount = current_sig.isna().sum() #Count the number of NaN
-            if nancount > len(current_sig)/2:
-                print(j, 'too many NaN values')
-                continue
-            else: 
-                sig_list.append(current_sig)  
+            print('shape chunked sig: ', np.shape(sig))
         
-        '''Change back to a DataFrame to perform interpolation (faster)'''
-        sig_df = pd.DataFrame(sig_list)
-        sig = sig_df.interpolate(axis=1, limit_direction='both')
-        ''' Turn back a numpy array to perform the FFT'''
-        sig = np.array(sig)
+        if nan_treatment:
+            sig = pd.DataFrame(sig)
+            sig_list = [] #temporary array to fill the 'correct slices'
+        
+            ''' If there are too many NaN in a nseg will remove the whole list
+            If the number of NaN is acceptable, will interpolate them with first ok value by linear method'''
+            for j in range(nseg): 
+                current_sig = sig.iloc[j,:] #Take only a segment
+                nancount = current_sig.isna().sum() #Count the number of NaN
+                if nancount > len(current_sig)/2:
+                    print(j, 'too many NaN values')
+                    continue
+                else: 
+                    sig_list.append(current_sig)  
+            
+            '''Change back to a DataFrame to perform interpolation (faster)'''
+            sig_df = pd.DataFrame(sig_list)
+            sig = sig_df.interpolate(axis=1, limit_direction='both')
+            ''' Turn back a numpy array to perform the FFT'''
+            sig = np.array(sig)
+
         # print(sig.shape)
         '''Normalisation'''
         if norm:
@@ -186,7 +190,6 @@ def compute_spectral_data(x, y, nfft=512,noverlap=256, dt=1E-5, norm=True, windo
         signals[i] = sig
         
     
-        
     x,y = signals
     x_ft, y_ft = signals_ft
     
@@ -217,7 +220,7 @@ def compute_spectral_data(x, y, nfft=512,noverlap=256, dt=1E-5, norm=True, windo
          print(np.shape(product))
          y_ft_mean = np.mean(abs(y_ft), axis=0)
          x_ft_mean = np.mean(abs(x_ft), axis=0)
-         coh = np.mean(product / (y_ft_mean * x_ft_mean), axis=0)
+         coh = np.mean(product, axis=0) / (y_ft_mean * x_ft_mean)
          
          return frq, coh
      

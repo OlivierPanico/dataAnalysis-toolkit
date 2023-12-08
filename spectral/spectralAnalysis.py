@@ -1,93 +1,31 @@
 from __future__ import division
 
 ''' General imports '''
-from numpy.lib.stride_tricks import as_strided as ast   #Used to chunk an array into overlapping segments
+
+
+
 
 import numpy as np
 from numpy import fft
 from math import floor
 import matplotlib.pyplot as plt
-from scipy.signal import coherence, filtfilt, detrend
+from scipy.signal import coherence, filtfilt, detrend, correlate, correlation_lags
 import pandas as pd 
 
 ''' local imports '''
-from dataAnalysis.utils import normalize_signal, split_1d_array
+from dataAnalysis.utils.utils import get_closest_ind, normalize_signal
+from dataAnalysis.utils.array_splitting import custom_split_1d, split_array_1d, chunk_data
 
-
-# import global_params
-# from read_profiles_pandas import get_clean_dyn_characteristic, find_nearest
-# from filter import butter_bandpass
-# from read_profiles import path_to_data_dyn
-
-
-def chunk_data(data,window_size,overlap_size=0,flatten_inside_window=True):
-    '''
-    !!! CAREFUL I THINK IT IS NOT FUNCTIONAL  => use np.split instead !!!
-    
-    This function is used to chunk an array into windows of size window_size with an overlapping size of overlap_size.
-    If the last window is not full, it will pad the last empty spaces with zeros
-    
-    
-    Parameters
-    ----------
-    data : array
-        The array we want to slice into pieces.
-    window_size : int
-        size of the windows (number of points).
-    overlap_size : int, optional
-        size of the overlap (number of points). The default is 0.
-    flatten_inside_window : bool, optional
-        Reduit le nombre de dimension du tableau final. The default is True.
-
-    Returns
-    -------
-    narray
-        Sliced array.
-
-    '''
-    
-    
-    assert data.ndim == 1 or data.ndim == 2
-    if data.ndim == 1:
-        data = data.reshape((-1,1))
-
-    # get the number of overlapping windows that fit into the data
-    num_windows = (data.shape[0] - window_size) // (window_size - overlap_size) + 1
-    overhang = data.shape[0] - (num_windows*window_size - (num_windows-1)*overlap_size)
-
-    # if there's overhang, need an extra window and a zero pad on the data
-    # (numpy 1.7 has a nice pad function I'm not using here)
-    if overhang != 0:
-        num_windows += 1
-        newdata = np.zeros((num_windows*window_size - (num_windows-1)*overlap_size,data.shape[1]))
-        newdata[:data.shape[0]] = data
-        data = newdata
-
-    sz = data.dtype.itemsize
-    ret = ast(
-            data,
-            shape=(num_windows,window_size*data.shape[1]),
-            strides=((window_size-overlap_size)*data.shape[1]*sz,sz),
-            writeable=False
-            )
-
-    if flatten_inside_window:
-        return ret
-    else:
-        return ret.reshape((num_windows,-1,data.shape[1]))
     
 # =============================================================================
 #  Main function    
 # =============================================================================
     
-def compute_spectral_data(x, y, nfft=512,noverlap=256, dt=1E-5, norm=True, window=None,coherence=False,nan_treatment=False, **kwargs):
+def custom_csd(x, y, nperseg=512,noverlap=256, dt=1E-5, norm=False, window=None,remove_mean=False,nan_treatment=False, **kwargs):
     '''
-    Compute spectrum and correlation of signal x and y.
+    Compute cross spectrum of signal x and y. 
     If x=y, the result is a self-spectrum while for x different from y the cross-spectrum is computed.
-    If y is delayed w.r.t x, the correlation is maxima for positive times t_corr > 0, or,
-    equivalently, the angle is negative for positive frequencies.
-    
-    i.e. Angle < 0 or correlation time > 0 => y delayed w.r.t x
+
     
     Parameters
     ----------
@@ -95,7 +33,7 @@ def compute_spectral_data(x, y, nfft=512,noverlap=256, dt=1E-5, norm=True, windo
         First input data.
     y : array
         Second input data.
-    nfft : int, optional
+    nperseg : int, optional
         Number of frequency bins. The default is 512.
     noverlap : int, optional
         Number of overlapping points. The default is 256.
@@ -113,10 +51,10 @@ def compute_spectral_data(x, y, nfft=512,noverlap=256, dt=1E-5, norm=True, windo
 
     Returns
     -------
-    frq
-        frequency array.
     spec
         autospectrum or interspectrum array.
+    frq
+        frequency array.
     corr
         correlation array.
     t_corr
@@ -129,19 +67,20 @@ def compute_spectral_data(x, y, nfft=512,noverlap=256, dt=1E-5, norm=True, windo
     
     for i, sig in enumerate(signals):
             
-        ''' Calculation of the number of segment according to nfft and len(x) / len(y)'''
-        nseg = floor(len(x) / nfft)
+        ''' Calculation of the number of segment according to nperseg and len(x) / len(y)'''
+        nseg = floor(len(x) / nperseg)
         
         ''' Slicing the original array into nseg segments'''
         if noverlap is None:
-            sig = split_1d_array(sig, nperseg=nfft)
+            sig = split_array_1d(sig, nperseg=nperseg)
             print('shape splitted sig: ', np.shape(sig))
-            # sig = np.reshape(sig[:nseg*nfft], (nseg, -1))  #Old method, still here to compare with the function chunk data
+            # sig = np.reshape(sig[:nseg*nperseg], (nseg, -1))  #Old method should work exactly as split_1d_array => gives weird result if nperseg*nseg = nbpts (ie if the decomposition is exact)
         else: 
             # print('chunking data')
-            sig = chunk_data(np.array(sig), nfft, overlap_size=noverlap)    #An overlap of 0 will give the same result as noverlap=None
-            print('shape chunked sig: ', np.shape(sig))
-        
+            #sig = chunk_data(np.array(sig), nperseg, overlap_size=noverlap)    # if overlap=0 => should give the same array as split and reshape
+            #print('shape chunked sig: ', np.shape(sig))
+            sig = custom_split_1d(sig, nperseg=nperseg, noverlap = noverlap)
+            
         if nan_treatment:
             sig = pd.DataFrame(sig)
             sig_list = [] #temporary array to fill the 'correct slices'
@@ -163,27 +102,31 @@ def compute_spectral_data(x, y, nfft=512,noverlap=256, dt=1E-5, norm=True, windo
             ''' Turn back a numpy array to perform the FFT'''
             sig = np.array(sig)
 
+        
         # print(sig.shape)
         '''Normalisation'''
         if norm:
             sig = normalize_signal(sig, perline=True)        
-                
+        
+        if remove_mean:
+            sig= detrend(sig, axis=0, type='constant')
         
         if window == 'hanning':
-            W = np.hanning(nfft)
+            W = np.hanning(nperseg)
             sig *= W
         elif window == 'hamming':
-            W = np.hamming(nfft)
+            W = np.hamming(nperseg)
             sig *= W
         elif window == 'bartlett':
-            W = np.bartlett(nfft)
+            W = np.bartlett(nperseg)
             sig *= W        
         elif window == 'blackman':
-            W = np.blackman(nfft)
+            W = np.blackman(nperseg)
             sig *= W        
         elif window == 'kaiser':
-            W = np.kaiser(nfft)
+            W = np.kaiser(nperseg)
             sig *= W
+        
         
         '''FFT'''
         signals_ft[i] = fft.fft(sig)
@@ -196,41 +139,89 @@ def compute_spectral_data(x, y, nfft=512,noverlap=256, dt=1E-5, norm=True, windo
     ''' compute self-spectrum of x or cross-spectrum of x and y if y is different from x:
         The result is normalized by the effective noise bandwidth to get the rms power density '''
     if window is None:
-        spec = np.mean(y_ft * np.conjugate(x_ft), axis=0) / nfft * dt
+        spec = np.mean(y_ft * np.conjugate(x_ft), axis=0) / nperseg * dt
         
     else: 
         sommation = sum(W**2)
         spec = np.mean(y_ft * np.conjugate(x_ft), axis=0) / (sommation) * dt
         
-        
+    #create a frequency array        
     frq = fft.fftfreq(spec.size, dt)
-    corr = fft.ifft(spec) / dt
-    t_corr = np.arange(-nfft/2, nfft/2) * dt
 
-
-    if (np.isreal(x) & np.isreal(y)).all():
-        corr = np.real(corr)
-
+    #shift both array and spectrum to center around 0
     frq = fft.fftshift(frq)
     spec = fft.fftshift(spec)
-    corr = fft.fftshift(corr)
     
-    if coherence:
-         product = y_ft*np.conjugate(x_ft)
-         print(np.shape(product))
-         y_ft_mean = np.mean(abs(y_ft), axis=0)
-         x_ft_mean = np.mean(abs(x_ft), axis=0)
-         coh = np.mean(product, axis=0) / (y_ft_mean * x_ft_mean)
-         
-         return frq, coh
-     
-    # remove unphysical spikes appearing sometimes at f=-50kHz
-    # spec[0] = spec[1]
 
-    return spec, frq, corr, t_corr 
+    return frq, spec
 
 
+
+def custom_coherence(x, y, nperseg=512,noverlap=256, dt=1E-5, norm=False, window=None,remove_mean=False,nan_treatment=False, **kwargs):
+    '''
+        If y is delayed w.r.t x, the correlation is maxima for positive times t_corr > 0, or,
+    equivalently, the angle is negative for positive frequencies.
+    
+    i.e. Angle < 0 or correlation time > 0 => y delayed w.r.t x
+    ''' 
+    f, pxy = custom_csd(x,y, nperseg=nperseg,noverlap=noverlap, dt=dt, norm=norm, window=window,remove_mean=remove_mean,nan_treatment=nan_treatment)#, **kwargs)
+    f, pxx = custom_csd(x,x, nperseg=nperseg,noverlap=noverlap, dt=dt, norm=norm, window=window,remove_mean=remove_mean,nan_treatment=nan_treatment)#, **kwargs)
+    f, pyy = custom_csd(y,y, nperseg=nperseg,noverlap=noverlap, dt=dt, norm=norm, window=window,remove_mean=remove_mean,nan_treatment=nan_treatment)#, **kwargs)
+    
+    coh = abs(pxy)**2/(pxx*pyy)
+    
+    
+    # pxy_real = fft.ifft(pxy)/dt
+    # pxx_real = fft.ifft(pxx)/dt
+    # pyy_real = fft.ifft(pyy)/dt
+    
+    # coh = abs(pxy_real)**2/pxx_real*pyy_real
+    
+    return f, coh
+
+ 
+
+def custom_time_coherence(x, y, nperseg=512, noverlap=256):
+    '''
+    Compute the normalized Pearson correlation from both array together with the lag array
+    '''
+    signals = [x, y]
+    signals_ft = [None, None]
+    
+    for i, sig in enumerate(signals):
+            
+        ''' Calculation of the number of segment according to nperseg and len(x) / len(y)'''
+        nseg = floor(len(x) / nperseg)
+        
+        ''' Slicing the original array into nseg segments'''
+        if noverlap is None:
+            sig = split_array_1d(sig, nperseg=nperseg)
+            print('shape splitted sig: ', np.shape(sig))
+            # sig = np.reshape(sig[:nseg*nperseg], (nseg, -1))  #Old method should work exactly as split_1d_array => gives weird result if nperseg*nseg = nbpts (ie if the decomposition is exact)
+        else: 
+            # print('chunking data')
+            #sig = chunk_data(np.array(sig), nperseg, overlap_size=noverlap)    # if overlap=0 => should give the same array as split and reshape
+            #print('shape chunked sig: ', np.shape(sig))
+            sig = custom_split_1d(sig, nperseg=nperseg, noverlap = noverlap)
+            
+            signals[i] = sig    
+
+    x_split = signals[0]
+    y_split = signals[1]
+    corr=0
+    for i in range(len(x_split[:,0])):
+        cloc = correlate(x_split[i,:]/np.std(x_split[i,:]), y_split[i,:]/np.std(y_split[i,:]), mode='same')/nperseg
+        corr += cloc/len(x_split[:,0])
+        
+    tcorr = correlation_lags(nperseg, nperseg, mode='same')    
+    
+    return tcorr, corr
+    
+    
+
+### TO BE DEPRECATED => COMPARE DIFFERENT COHERENCE METHODS
 def get_coherence(probe,position,method=1,characteristic='ne',nfft = 512, plot=True, ax=None ):
+
     '''
     to get the coherence of two signals
     inputs:
@@ -244,6 +235,7 @@ def get_coherence(probe,position,method=1,characteristic='ne',nfft = 512, plot=T
         coherence array
         return the 4 arrays in the case of method = 0
     '''
+    
     
     # Choose automatically the correct signals
     params = [probe, position, characteristic]
@@ -320,6 +312,191 @@ def get_coherence(probe,position,method=1,characteristic='ne',nfft = 512, plot=T
         return frq_scipy,coh_scipy,frq,coh 
     else:
         return
+
+
+
+### ===== ###
+### TESTS ###
+### ===== ###
+
+#Imports
+from scipy.signal import unit_impulse, welch
+
+
+class TestSignal():
+    
+    def __init__(self, f1=50, f2=70, phase1=0.3, phase2=0.7, nbpts=20000, fs=1e3, noise_amp = 0.5, phase1_noise_amp = 0.2):
+        
+        #Signal parameters
+        self.f1 = f1
+        self.f2 = f2
+        self.phase1 = phase1
+        self.phase2 = phase2
+        self.nbpts = nbpts
+        self.fs = fs
+        self.noise_amp = noise_amp
+        self.phase1_noise_amp = phase1_noise_amp
+        
+        t = np.linspace(-nbpts/(2*fs), nbpts/(2*fs)-1/fs, nbpts)
+        dt = t[1]-t[0]
+        noise = noise_amp*np.random.normal(0, 1, nbpts)
+        phase1_noise = phase1_noise_amp * np.random.normal(0, 1, nbpts)
+        
+        self.t = t
+        self.dt = dt
+        self.noise = noise
+        self.phase1_noise = phase1_noise
+        
+        #Specific noises
+        n1 = 0*np.random.normal(0, 1, nbpts)
+        n2 = 0*np.random.normal(0, 1, nbpts)
+        # n3 = 0*np.random.normal(0, 1, nbpts)
+        
+        s1 = n1 + np.cos(2*np.pi*f1*t + phase1 + phase1_noise)
+        s2 = n2 + np.cos(2*np.pi*f2*t + phase2)
+        s3 = s1 * s2
+        signal = s1 + s2 + s3 + noise
+        
+        self.s1 = s1
+        self.s2 = s2
+        self.s3 = s3
+        self.signal = signal
+   
+        
+    def get_analytical_fft(self):
+        
+        f1 = self.f1
+        f2 = self.f2
+        phase1 = self.phase1
+        phase2 = self.phase2
+        
+        fs = self.fs
+        nbpts = self.nbpts
+        
+        frq = np.fft.fftfreq(nbpts,1/fs)
+        frq = np.fft.fftshift(frq)
+        
+        f1_idxNeg = get_closest_ind(frq,-f1)
+        f1_idxPos = get_closest_ind(frq,f1)
+        
+        f2_idxNeg = get_closest_ind(frq,-f2)
+        f2_idxPos = get_closest_ind(frq,f2)
+        
+        f3_idxNeg = get_closest_ind(frq,-(f1 +f2))
+        f3_idxPos = get_closest_ind(frq, f1 + f2)
+        
+        f4_idxNeg = get_closest_ind(frq,-(f1 - f2))
+        f4_idxPos = get_closest_ind(frq,(f1-f2))
+        
+        dir1Neg = unit_impulse(nbpts,f1_idxNeg)
+        dir1Pos = unit_impulse(nbpts,f1_idxPos)
+        dir2Neg = unit_impulse(nbpts,f2_idxNeg)
+        dir2Pos = unit_impulse(nbpts,f2_idxPos)
+        dir3Neg = unit_impulse(nbpts,f3_idxNeg)
+        dir3Pos = unit_impulse(nbpts,f3_idxPos)
+        dir4Neg = unit_impulse(nbpts,f4_idxNeg)
+        dir4Pos = unit_impulse(nbpts,f4_idxPos)
+        
+        spec1_analytic = 0.5* ( np.exp(1J*phase1)*dir1Pos + np.exp(-1J*phase1)*dir1Neg)
+        spec2_analytic = 0.5* ( np.exp(1J*phase2)*dir2Pos + np.exp(-1J*phase2)*dir2Neg)
+        spec3_analytic = 0.25* ( np.exp(1J*(phase1+phase2)) * dir3Pos + np.exp(-1J*(phase1+phase2)) * dir3Neg
+                            + np.exp(1J*(phase1-phase2)) * dir4Pos + np.exp(-1J*(phase1-phase2)) * dir4Neg)
+        analytic_spec = spec1_analytic + spec2_analytic + spec3_analytic
+    
+        return frq, analytic_spec
+    
+    def get_numerical_fft(self, window=None):
+        
+        nbpts = self.nbpts
+        fs = self.fs
+        s1 = self.s1
+        s2 = self.s2
+        s3 = self.s3
+        signal = self.signal
+        
+        #FFT
+        if window is not None:
+            print('window not functional yet')
+            W = np.hanning(nbpts)
+            sommation = sum(W**2)
+            
+        frq = np.fft.fftfreq(nbpts,1/fs)
+        frq = np.fft.fftshift(frq)
+        
+        spec1_fft = np.fft.fft((s1))/(nbpts)
+        spec1_fft = np.fft.fftshift(spec1_fft)
+        
+        spec2_fft = np.fft.fft(s2)/(nbpts)
+        spec2_fft = np.fft.fftshift(spec2_fft)
+        
+        spec3_fft = np.fft.fft(s3)/(nbpts)
+        spec3_fft = np.fft.fftshift(spec3_fft)
+        
+        numerical_spec = np.fft.fft(signal)/nbpts
+        numerical_spec = np.fft.fftshift(numerical_spec)
+        
+        return frq, numerical_spec
+    
+    
+    
+    def get_welch(self, nperseg=512, scaling='spectrum'):
+        '''
+        Careful: welch returns either the power spectral density or the spectrum => in either case it gives a positive real valued array => careful with the phase ?
+        '''
+        signal = self.signal
+        fs = self.fs 
+        nbpts=self.nbpts
+        
+        frq, welch_spec = welch(signal, fs=fs, nperseg=nperseg, noverlap=nperseg//2, scaling=scaling)
+        
+        return frq, welch_spec
+    
+    
+    def plot_analytic_numerical_spectrum(self):
+        
+        frq, analytic_spec = self.get_analytical_fft()
+        _, numerical_spec = self.get_numerical_fft()
+        f_welch, welch_spec = self.get_welch()
+
+        #Comparison
+        plt.figure()
+        plt.title('Comparison signal fft and analytic')
+        
+        plt.subplot(3,3,1)
+        plt.title('spec fft real')
+        plt.plot(frq,numerical_spec.real)
+        plt.subplot(3,3,4)
+        plt.title('spec fft imag')
+        plt.plot(frq,numerical_spec.imag)
+        plt.subplot(3,3,7)
+        plt.title('spec fft amp')
+        plt.plot(frq,np.sqrt(numerical_spec.real**2 + numerical_spec.imag**2))
+        
+        plt.subplot(3,3,2)
+        plt.title('spec analytic real')
+        plt.plot(frq,analytic_spec.real)
+        plt.subplot(3,3,5)
+        plt.title('spec analytic imag')
+        plt.plot(frq,analytic_spec.imag)
+        plt.subplot(3,3,8)
+        plt.title('spec analytic amp')
+        plt.plot(frq,np.sqrt(analytic_spec.real**2 + analytic_spec.imag**2))
+        
+        plt.subplot(3,3,3)
+        plt.title('spec welch real')
+        plt.plot(f_welch, welch_spec.real)
+        plt.xlim(frq[0], - frq[0])
+        plt.subplot(3,3,6)
+        plt.title('spec welch imag')
+        plt.plot(f_welch, welch_spec.imag)
+        plt.xlim(frq[0], - frq[0])
+        plt.subplot(3,3,9)
+        plt.title('spec welch amp')
+        plt.plot(f_welch,np.sqrt(welch_spec.real**2 + welch_spec.imag**2))
+        plt.xlim(frq[0], - frq[0])
+        
+        plt.tight_layout()
+
 
 
   

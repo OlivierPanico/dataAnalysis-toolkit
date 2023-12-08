@@ -1,10 +1,6 @@
-from __future__ import division
+# from __future__ import division
 
 ''' General imports '''
-
-
-
-
 import numpy as np
 from numpy import fft
 from math import floor
@@ -13,10 +9,10 @@ from scipy.signal import coherence, filtfilt, detrend, correlate, correlation_la
 import pandas as pd 
 
 ''' local imports '''
-from dataAnalysis.utils.utils import get_closest_ind, normalize_signal
+from dataAnalysis.utils.utils import get_closest_ind, normalize_array_2d
 from dataAnalysis.utils.array_splitting import custom_split_1d, split_array_1d, chunk_data
 
-    
+
 # =============================================================================
 #  Main function    
 # =============================================================================
@@ -26,7 +22,6 @@ def custom_csd(x, y, nperseg=512,noverlap=256, dt=1E-5, norm=False, window=None,
     Compute cross spectrum of signal x and y. 
     If x=y, the result is a self-spectrum while for x different from y the cross-spectrum is computed.
 
-    
     Parameters
     ----------
     x : array
@@ -43,9 +38,6 @@ def custom_csd(x, y, nperseg=512,noverlap=256, dt=1E-5, norm=False, window=None,
         If we want to normalize the data. i.e. detrending constant values per segment. The default is True.
     window : str, optional
         Name of the corresponding window: 'hanning', 'hamming', 'bartlett', 'kaiser', 'blackman'. Careful : the use of windowing will lower spectrum frequency and reduce the correlation. The default is None.
-    coherence : bool, optional
-        NOT WORKING
-        To compute the coherence instead of spectrum and correlation. The default is False.
     **kwargs : TYPE
         DESCRIPTION.
 
@@ -102,15 +94,15 @@ def custom_csd(x, y, nperseg=512,noverlap=256, dt=1E-5, norm=False, window=None,
             ''' Turn back a numpy array to perform the FFT'''
             sig = np.array(sig)
 
-        
-        # print(sig.shape)
-        '''Normalisation'''
-        if norm:
-            sig = normalize_signal(sig, perline=True)        
-        
+
         if remove_mean:
             sig= detrend(sig, axis=0, type='constant')
-        
+
+        print(sig.shape)
+        '''Normalisation'''
+        if norm:
+            sig = normalize_array_2d(sig, axis=0)     
+
         if window == 'hanning':
             W = np.hanning(nperseg)
             sig *= W
@@ -136,6 +128,10 @@ def custom_csd(x, y, nperseg=512,noverlap=256, dt=1E-5, norm=False, window=None,
     x,y = signals
     x_ft, y_ft = signals_ft
     
+    #faire le fftshift sur signals_ft
+
+
+
     ''' compute self-spectrum of x or cross-spectrum of x and y if y is different from x:
         The result is normalized by the effective noise bandwidth to get the rms power density '''
     if window is None:
@@ -500,4 +496,19 @@ class TestSignal():
 
 
   
-# if __name__ == '__main__':
+if __name__ == '__main__':
+
+    #Test correlation
+    sig = TestSignal(f1=500, f2 = 700, phase1=0, phase2=0, noise_amp=1, phase1_noise_amp=0)
+    x = sig.signal[0:10000]
+    y = sig.signal[100:10100]
+    f, pxy = custom_csd(y,x, 1024, 512, window='hanning', norm=True,  dt=1/sig.fs )
+    W=np.hanning(1024)
+    sommation=sum(W**2)
+    test = (fft.ifft(pxy))/dt
+    test = (fft.ifftshift(test))
+    plt.figure()
+    plt.plot(test)
+    tcorr, corr = custom_time_coherence(x,y, 1024,512)
+    plt.figure()
+    plt.plot(corr)

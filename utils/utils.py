@@ -1,9 +1,12 @@
-### ======= ###
-### authors ###
-### ======= ###
-# Name: Olivier Panico
-# Corresponding author: olivier.panico@free.fr
+# =============================================================================
+#  Authors
+# =============================================================================
+# Name: Olivier PANICO
+# corresponding author: olivier.panico@free.fr
 
+# =============================================================================
+#  Imports
+# =============================================================================
 #General imports
 import os
 from os.path import isdir, join

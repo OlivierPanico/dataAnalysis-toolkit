@@ -1,22 +1,25 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Wed Dec  6 13:25:55 2023
+# =============================================================================
+#  Authors
+# =============================================================================
+# Name: Olivier PANICO
+# corresponding author: olivier.panico@free.fr
 
-@author: OP269158
-"""
-
-
-'''
-Several function for splitting arrays
-Always prefer split_array if no overlap is needed
-If overlap is needed prefer custom split except for large arrays then use chunk_data
-'''
-
-### imports
+# =============================================================================
+#  Imports
+# =============================================================================
 import numpy as np
 from numpy.lib.stride_tricks import as_strided as ast   #Used to chunk an array into overlapping segments (can mess with memory buffer)
 
+# =============================================================================
+#  Remark
+# =============================================================================
+# Several function for splitting arrays
+# Always prefer split_array if no overlap is needed
+# If overlap is needed prefer custom split except for large arrays then use chunk_data
 
+# =============================================================================
+#  Main functions    
+# =============================================================================
 
 def custom_split_1d(A, nperseg, noverlap=0, zero_padding=False):
     '''

@@ -1,10 +1,15 @@
+# =============================================================================
+#  Authors
+# =============================================================================
+# Name: Olivier PANICO
+# corresponding author: olivier.panico@free.fr
+
+# =============================================================================
+#  Imports
+# =============================================================================
 from __future__ import division
 
 ''' General imports '''
-
-
-
-
 import numpy as np
 from numpy import fft
 from math import floor
@@ -14,11 +19,18 @@ import pandas as pd
 
 ''' local imports '''
 from dataAnalysis.utils.utils import get_closest_ind, normalize_signal
+from dataAnalysis.utils.plot_utils import plot_1d
 from dataAnalysis.utils.array_splitting import custom_split_1d, split_array_1d, chunk_data
 
+# =============================================================================
+#  Contains
+# =============================================================================
+# custom_csd(x, y, nperseg=512,noverlap=256, dt=1E-5, norm=False, window=None,remove_mean=False,nan_treatment=False, **kwargs)
+# custom_coherence(x, y, nperseg=512,noverlap=256, dt=1E-5, norm=False, window=None,remove_mean=False,nan_treatment=False, **kwargs)
+# custom_time_coherence(x, y, nperseg=512, noverlap=256):
     
 # =============================================================================
-#  Main function    
+#  Main functions    
 # =============================================================================
     
 def custom_csd(x, y, nperseg=512,noverlap=256, dt=1E-5, norm=False, window=None,remove_mean=False,nan_treatment=False, **kwargs):
@@ -181,49 +193,13 @@ def custom_coherence(x, y, nperseg=512,noverlap=256, dt=1E-5, norm=False, window
     return f, coh
 
  
-
-def custom_time_coherence_std(x, y, nperseg=512, noverlap=256):
-    '''
-    Compute the normalized Pearson correlation from both array together with the lag array
-    '''
-    signals = [x, y]
-    signals_ft = [None, None]
-    
-    for i, sig in enumerate(signals):
-            
-        ''' Calculation of the number of segment according to nperseg and len(x) / len(y)'''
-        nseg = floor(len(x) / nperseg)
-        
-        ''' Slicing the original array into nseg segments'''
-        if noverlap is None:
-            sig = split_array_1d(sig, nperseg=nperseg)
-            print('shape splitted sig: ', np.shape(sig))
-            # sig = np.reshape(sig[:nseg*nperseg], (nseg, -1))  #Old method should work exactly as split_1d_array => gives weird result if nperseg*nseg = nbpts (ie if the decomposition is exact)
-        else: 
-            # print('chunking data')
-            #sig = chunk_data(np.array(sig), nperseg, overlap_size=noverlap)    # if overlap=0 => should give the same array as split and reshape
-            #print('shape chunked sig: ', np.shape(sig))
-            sig = custom_split_1d(sig, nperseg=nperseg, noverlap = noverlap)
-            
-            signals[i] = sig    
-
-    x_split = signals[0]
-    y_split = signals[1]
-    corr=0
-    for i in range(len(x_split[:,0])):
-        cloc = correlate(x_split[i,:]/np.std(x_split[i,:]), y_split[i,:]/np.std(y_split[i,:]), mode='same')/nperseg
-        corr += cloc/len(x_split[:,0])
-
-        
-    
-    tcorr = correlation_lags(nperseg, nperseg, mode='same')    
-    
-    return tcorr, corr
-    
+   
 
 def custom_time_coherence(x, y, nperseg=512, noverlap=256):
     '''
     Compute the normalized Pearson correlation from both array together with the lag array
+    If y is delayed w.r.t x, the correlation is maxima for positive times t_corr > 0,
+    
     '''
     signals = [x, y]
     signals_ft = [None, None]
@@ -251,15 +227,10 @@ def custom_time_coherence(x, y, nperseg=512, noverlap=256):
     corr=0
     
     nxsplit = len(x_split[:,0])
-    print(nxsplit)
     for i in range(nxsplit):
         cloc = correlate(x_split[i,:], y_split[i,:], mode='same')/nperseg
         autocorr_x = correlate(x_split[i,:], x_split[i,:], mode='same')/nperseg
         autocorr_y = correlate(y_split[i,:], y_split[i,:], mode='same')/nperseg
-        
-        print(nperseg)
-        
-        print(autocorr_x[nperseg//2], autocorr_y[nperseg//2])
         
         corr += (cloc/np.sqrt(autocorr_x[nperseg//2] * autocorr_y[nperseg//2]))/len(x_split[:,0])
 
@@ -558,16 +529,49 @@ if __name__ == '__main__':
     dt = 1/sig.fs
     x = sig.signal[0:18000]
     y = sig.signal[100:18100]
-    f, pxy = custom_csd(y,x, 2048, 1024, window='hanning', norm=True, remove_mean=True, dt=1/sig.fs )
-    W=np.hanning(1024)
-    sommation=sum(W**2)
-    test = (fft.ifft(pxy))/dt
-    test = (fft.ifftshift(test))
-    plt.figure()
-    plt.plot(test)
-    plt.title('Correlation function from fourier')
+    
+    nperseg = 1024
+    noverlap = 0
+    
+    print(' --- Time coherence from custom csd --- ')
+    f, pxy = custom_csd(y,x, nperseg, noverlap, window='hanning', norm=False, remove_mean=True, dt=1/sig.fs )
+    f, pxx = custom_csd(x,x, nperseg, noverlap, window='hanning', norm=False, remove_mean=True, dt=1/sig.fs )
+    f, pyy = custom_csd(y,y, nperseg, noverlap, window='hanning', norm=False, remove_mean=True, dt=1/sig.fs )
+    
+    pxy_real = (fft.ifft(pxy)).real/dt
+    pxy_real = (fft.ifftshift(pxy_real))
+    
+    pxx_real = (fft.ifft(pxx)).real/dt
+    pxx_real = (fft.ifftshift(pxx_real))
+    
+    pyy_real = (fft.ifft(pyy)).real/dt
+    pyy_real = (fft.ifftshift(pyy_real))
+    
+    t = correlation_lags(nperseg, nperseg, mode='same')    
+    
+    fig, ax = plot_1d([], grid=True)
+    ax.plot(t,pxy_real/(np.sqrt(pxx_real[nperseg//2]*pyy_real[nperseg//2])), color='black')
+    # ax.plot(pxx_real, color='blue')
+    # ax.plot(pyy_real, color='red')
+    ax.set_title('ifft(pxy)/sqrt(ifft(pxx[0])*ifft(pyy[0])) function from fourier', fontsize=12)
+    
+    ### Fourier coherence ###
+    print(' --- frequency coherence from Fourier --- ')
+    f, cohf = custom_coherence(x, y, nperseg=nperseg,noverlap=noverlap, dt=1/sig.fs, norm=False, window='hanning',remove_mean=True,nan_treatment=False)
+    f2, cohf2 = coherence(x,y,fs=sig.fs, nperseg=nperseg, noverlap=noverlap)
+    
+    fig, ax = plot_1d([], grid=True)
+    ax.plot(f, cohf.real, color='black', label='custom coherence')
+    ax.plot(f2, cohf2.real, color='red', label='scipy signal coherence')
+    ax.legend()
+    ax.set_title('coh from fourier',  fontsize=12, loc='left')
+    
+    
+    ### Time coherence ###
+    print(' --- Time coherence from real space --- ')
+    
     # tcorr, corr = custom_time_coherence(x/np.std(x),y/np.std(y), 4096,2048)
-    tcorr, corr = custom_time_coherence(x,y, 2048,1024)
-    plt.figure()
-    plt.plot(tcorr, corr)
-    plt.title('Correlation from np correlate')
+    tcorr, corr = custom_time_coherence(x,y, nperseg,noverlap)
+    fig, ax = plot_1d([], grid=True)
+    ax.plot(tcorr, corr, color='black')
+    ax.set_title('Correlation from np correlate',  fontsize=12)

@@ -170,6 +170,7 @@ def custom_coherence(x, y, nperseg=512,noverlap=256, dt=1E-5, norm=False, window
     
     coh = abs(pxy)**2/(pxx*pyy)
     
+    # corr = fft.ifft(pxy)
     
     # pxy_real = fft.ifft(pxy)/dt
     # pxx_real = fft.ifft(pxx)/dt
@@ -181,7 +182,7 @@ def custom_coherence(x, y, nperseg=512,noverlap=256, dt=1E-5, norm=False, window
 
  
 
-def custom_time_coherence(x, y, nperseg=512, noverlap=256):
+def custom_time_coherence_std(x, y, nperseg=512, noverlap=256):
     '''
     Compute the normalized Pearson correlation from both array together with the lag array
     '''
@@ -212,12 +213,62 @@ def custom_time_coherence(x, y, nperseg=512, noverlap=256):
     for i in range(len(x_split[:,0])):
         cloc = correlate(x_split[i,:]/np.std(x_split[i,:]), y_split[i,:]/np.std(y_split[i,:]), mode='same')/nperseg
         corr += cloc/len(x_split[:,0])
+
         
+    
     tcorr = correlation_lags(nperseg, nperseg, mode='same')    
     
     return tcorr, corr
     
+
+def custom_time_coherence(x, y, nperseg=512, noverlap=256):
+    '''
+    Compute the normalized Pearson correlation from both array together with the lag array
+    '''
+    signals = [x, y]
+    signals_ft = [None, None]
     
+    for i, sig in enumerate(signals):
+            
+        ''' Calculation of the number of segment according to nperseg and len(x) / len(y)'''
+        nseg = floor(len(x) / nperseg)
+        
+        ''' Slicing the original array into nseg segments'''
+        if noverlap is None:
+            sig = split_array_1d(sig, nperseg=nperseg)
+            print('shape splitted sig: ', np.shape(sig))
+            # sig = np.reshape(sig[:nseg*nperseg], (nseg, -1))  #Old method should work exactly as split_1d_array => gives weird result if nperseg*nseg = nbpts (ie if the decomposition is exact)
+        else: 
+            # print('chunking data')
+            #sig = chunk_data(np.array(sig), nperseg, overlap_size=noverlap)    # if overlap=0 => should give the same array as split and reshape
+            #print('shape chunked sig: ', np.shape(sig))
+            sig = custom_split_1d(sig, nperseg=nperseg, noverlap = noverlap)
+            
+            signals[i] = sig    
+
+    x_split = signals[0]
+    y_split = signals[1]
+    corr=0
+    
+    nxsplit = len(x_split[:,0])
+    print(nxsplit)
+    for i in range(nxsplit):
+        cloc = correlate(x_split[i,:], y_split[i,:], mode='same')/nperseg
+        autocorr_x = correlate(x_split[i,:], x_split[i,:], mode='same')/nperseg
+        autocorr_y = correlate(y_split[i,:], y_split[i,:], mode='same')/nperseg
+        
+        print(nperseg)
+        
+        print(autocorr_x[nperseg//2], autocorr_y[nperseg//2])
+        
+        corr += (cloc/np.sqrt(autocorr_x[nperseg//2] * autocorr_y[nperseg//2]))/len(x_split[:,0])
+
+    
+    
+    tcorr = correlation_lags(nperseg, nperseg, mode='same')    
+    
+    return tcorr, corr
+
 
 ### TO BE DEPRECATED => COMPARE DIFFERENT COHERENCE METHODS
 def get_coherence(probe,position,method=1,characteristic='ne',nfft = 512, plot=True, ax=None ):
@@ -343,6 +394,7 @@ class TestSignal():
         phase1_noise = phase1_noise_amp * np.random.normal(0, 1, nbpts)
         
         self.t = t
+        
         self.dt = dt
         self.noise = noise
         self.phase1_noise = phase1_noise
@@ -439,7 +491,7 @@ class TestSignal():
     
     
     
-    def get_welch(self, nperseg=512, scaling='spectrum'):
+    def get_welch(self, nperseg=512, window='hann', scaling='density'):
         '''
         Careful: welch returns either the power spectral density or the spectrum => in either case it gives a positive real valued array => careful with the phase ?
         '''
@@ -447,7 +499,7 @@ class TestSignal():
         fs = self.fs 
         nbpts=self.nbpts
         
-        frq, welch_spec = welch(signal, fs=fs, nperseg=nperseg, noverlap=nperseg//2, scaling=scaling)
+        frq, welch_spec = welch(signal, fs=fs, nperseg=nperseg, noverlap=nperseg//2,window=window, scaling=scaling, return_onesided=False)
         
         return frq, welch_spec
     
@@ -500,4 +552,22 @@ class TestSignal():
 
 
   
-# if __name__ == '__main__':
+if __name__ == '__main__':
+    #Test correlation
+    sig = TestSignal(f1=2000, f2 = 700, phase1=0, phase2=0, noise_amp=1, phase1_noise_amp=0)
+    dt = 1/sig.fs
+    x = sig.signal[0:18000]
+    y = sig.signal[100:18100]
+    f, pxy = custom_csd(y,x, 2048, 1024, window='hanning', norm=True, remove_mean=True, dt=1/sig.fs )
+    W=np.hanning(1024)
+    sommation=sum(W**2)
+    test = (fft.ifft(pxy))/dt
+    test = (fft.ifftshift(test))
+    plt.figure()
+    plt.plot(test)
+    plt.title('Correlation function from fourier')
+    # tcorr, corr = custom_time_coherence(x/np.std(x),y/np.std(y), 4096,2048)
+    tcorr, corr = custom_time_coherence(x,y, 2048,1024)
+    plt.figure()
+    plt.plot(tcorr, corr)
+    plt.title('Correlation from np correlate')

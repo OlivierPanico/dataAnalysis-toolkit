@@ -59,8 +59,30 @@ def my_linearRegression(xdata, ydata, mode='linear'):
     
     return popt, perr, r_squared
     
+
+
+
+def normalize_array_1d(A):
+    return (A - np.mean(A)) / np.std(A)
+
+
+def normalize_array_2d(A, axis=0):
+
+    n, p = np.shape(A)
+    Anorm = np.zeros_like(A)
+
+    if axis==0:
+        for i in range(n):
+            Anorm[i,:] = normalize_array_1d(A[i,:])
+    else:
+        Anorm = np.transpose(normalize_array_2d(np.transpose(A), axis=0))
     
-def normalize_signal(x, perline =False):
+    return Anorm
+
+
+
+
+def normalize_array(A, axis=0):
     '''
     Normalization of an array: removing mean and dividing by the deviation. 
     Will either normalize the whole array or treat it line by line.
@@ -78,16 +100,22 @@ def normalize_signal(x, perline =False):
         Normalized array.
 
     '''
-    xnorm = np.zeros_like(x)
-    
+
+    nbdim = A.ndim
+    n = np.shape(A)
+
+    Anorm = np.zeros_like(A)
+
+
+
     if perline:
-        for i in range(len(x[:,0])):
-            mean= np.mean(x[i,:])
-            deviation = np.std(x[i,:])
-            xnorm[i,:] = (x[i,:] - mean) / deviation
+        for i in range(len(A[:,0])):
+            mean= np.mean(A[i,:])
+            deviation = np.std(A[i,:])
+            xnorm[i,:] = (A[i,:] - mean) / deviation
             
     else: 
-        xnorm = (x - np.mean(x)) / np.std(x)
+        xnorm = (A - np.mean(A)) / np.std(A)
         
     return xnorm
 

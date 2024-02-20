@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dataAnalysis"
+version = "1.0.0"
+authors = [{ name = "OP", email = "olivier.panico@free.fr" }]
+description = ""
+dependencies = [
+    "numpy",
+    "scipy",
+    "matplotlib",
+]
+
+[project.optional-dependencies]
+
+[project.scripts]
+
+[project.urls]
+Repository = "https://github.com/OlivierPanico/dataAnalysis"
+

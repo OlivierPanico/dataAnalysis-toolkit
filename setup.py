@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 setup(
-    name='dataAnalysis',
+    name='dataAnalysis-toolkit',
     version='1.0.0',
     author='OP',
     author_email='olivier.panico@free.fr',
@@ -9,9 +9,6 @@ setup(
     packages=find_packages(),  # Automatically discover and include all packages
     install_requires=[
         # List the dependencies your package needs
-        'numpy',
-        'scipy',
-        'matplotlib'
     ],
     classifiers=[
         # 'Development Status :: 3 - Alpha',

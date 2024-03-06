@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # =============================================================================
 #  Authors
 # =============================================================================
@@ -9,9 +8,6 @@
 #  Imports
 # =============================================================================
 from __future__ import division
-=======
-# from __future__ import division
->>>>>>> refs/remotes/origin/main
 
 ''' General imports '''
 import numpy as np
@@ -26,8 +22,7 @@ import sys
 sys.path.append('c:\\Users\\OP269158\\Documents\\2022_Thèse\\CodesPython')
 
 ''' local imports '''
-<<<<<<< HEAD
-from dataAnalysis.utils.utils import get_closest_ind, normalize_signal
+from dataAnalysis.utils.utils import get_closest_ind, normalize_array_1d, normalize_array_2d
 from dataAnalysis.utils.plot_utils import plot_1d
 from dataAnalysis.utils.array_splitting import custom_split_1d, split_array_1d, chunk_data
 
@@ -38,12 +33,6 @@ from dataAnalysis.utils.array_splitting import custom_split_1d, split_array_1d, 
 # custom_coherence(x, y, nperseg=512,noverlap=256, dt=1E-5, norm=False, window=None,remove_mean=False,nan_treatment=False, **kwargs)
 # custom_time_coherence(x, y, nperseg=512, noverlap=256):
     
-=======
-from dataAnalysis.utils.utils import get_closest_ind, normalize_array_2d
-from dataAnalysis.utils.array_splitting import custom_split_1d, split_array_1d, chunk_data
-
-
->>>>>>> refs/remotes/origin/main
 # =============================================================================
 #  Main functions    
 # =============================================================================
@@ -443,7 +432,6 @@ class TestSignal():
 
   
 if __name__ == '__main__':
-<<<<<<< HEAD
     #Test correlation
     sig = TestSignal(f1=2000, f2 = 700, phase1=0, phase2=0, noise_amp=1, phase1_noise_amp=0)
     dt = 1/sig.fs
@@ -495,20 +483,18 @@ if __name__ == '__main__':
     fig, ax = plot_1d([], grid=True)
     ax.plot(tcorr, corr, color='black')
     ax.set_title('Correlation from np correlate',  fontsize=12)
-=======
 
     #Test correlation
-    sig = TestSignal(f1=500, f2 = 700, phase1=0, phase2=0, noise_amp=1, phase1_noise_amp=0)
-    x = sig.signal[0:10000]
-    y = sig.signal[100:10100]
-    f, pxy = custom_csd(y,x, 1024, 512, window='hanning', norm=True,  dt=1/sig.fs )
-    W=np.hanning(1024)
-    sommation=sum(W**2)
-    test = (fft.ifft(pxy))/dt
-    test = (fft.ifftshift(test))
-    plt.figure()
-    plt.plot(test)
-    tcorr, corr = custom_time_coherence(x,y, 1024,512)
-    plt.figure()
-    plt.plot(corr)
->>>>>>> refs/remotes/origin/main
+    # sig = TestSignal(f1=500, f2 = 700, phase1=0, phase2=0, noise_amp=1, phase1_noise_amp=0)
+    # x = sig.signal[0:10000]
+    # y = sig.signal[100:10100]
+    # f, pxy = custom_csd(y,x, 1024, 512, window='hanning', norm=True,  dt=1/sig.fs )
+    # W=np.hanning(1024)
+    # sommation=sum(W**2)
+    # test = (fft.ifft(pxy))/dt
+    # test = (fft.ifftshift(test))
+    # plt.figure()
+    # plt.plot(test)
+    # tcorr, corr = custom_time_coherence(x,y, 1024,512)
+    # plt.figure()
+    # plt.plot(corr)

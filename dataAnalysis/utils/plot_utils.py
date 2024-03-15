@@ -31,6 +31,22 @@ plt.rcParams.update({'ytick.left':True, 'ytick.right':True,
 
 clist_jet = plt.cm.jet
 
+def get_cmap_list(n, cmap_name, verbose=0):
+    colors_ind = np.linspace(0,1,n)
+    
+    if cmap_name=='viridis':
+        cmap=plt.cm.viridis
+    elif cmap_name=='bwr':
+        cmap=plt.cm.bwr
+    else:
+        if verbose==1:
+            print('choosing default cmap jet')
+        cmap=plt.cm.jet
+
+    return cmap(colors_ind)
+
+
+
 def plot_1d(ydata, xdata=None, fig=None, ax=None, grid=False, constrained_layout=False, clist='jet', xlabel=None, ylabel=None, xscale=None, yscale=None, **kwargs):
     
     if type(ydata) is list:

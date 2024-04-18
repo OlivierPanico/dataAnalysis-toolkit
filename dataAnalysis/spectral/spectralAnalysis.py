@@ -85,7 +85,7 @@ def custom_csd(x, y, nperseg=512,noverlap=256, dt=1E-5, norm=False, window=None,
         ''' Slicing the original array into nseg segments'''
         if noverlap is None:
             sig = split_array_1d(sig, nperseg=nperseg)
-            print('shape splitted sig: ', np.shape(sig))
+            # print('shape splitted sig: ', np.shape(sig))
             # sig = np.reshape(sig[:nseg*nperseg], (nseg, -1))  #Old method should work exactly as split_1d_array => gives weird result if nperseg*nseg = nbpts (ie if the decomposition is exact)
         else: 
             # print('chunking data')
@@ -118,7 +118,7 @@ def custom_csd(x, y, nperseg=512,noverlap=256, dt=1E-5, norm=False, window=None,
         if remove_mean:
             sig= detrend(sig, axis=0, type='constant')
 
-        print(sig.shape)
+        # print(sig.shape)
         '''Normalisation'''
         if norm:
             sig = normalize_array_2d(sig, axis=0)     
@@ -216,7 +216,7 @@ def custom_time_coherence(x, y, nperseg=512, noverlap=256):
         ''' Slicing the original array into nseg segments'''
         if noverlap is None:
             sig = split_array_1d(sig, nperseg=nperseg)
-            print('shape splitted sig: ', np.shape(sig))
+            # print('shape splitted sig: ', np.shape(sig))
             # sig = np.reshape(sig[:nseg*nperseg], (nseg, -1))  #Old method should work exactly as split_1d_array => gives weird result if nperseg*nseg = nbpts (ie if the decomposition is exact)
         else: 
             # print('chunking data')

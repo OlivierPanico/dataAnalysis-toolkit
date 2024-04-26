@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 ### MATPLOTLIB PARAMS ###
-plt.rcParams.update({'font.size': 16, 'figure.figsize': [8, 5],})
+plt.rcParams.update({'font.size': 12, 'figure.figsize': [8, 5],})
 plt.rcParams.update({'xtick.top':True, 'xtick.bottom':True, 
                     'xtick.major.width':2, 'xtick.minor.width':2, 
                     'xtick.major.size':6, 'xtick.minor.size':3, 

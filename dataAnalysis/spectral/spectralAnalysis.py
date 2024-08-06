@@ -150,8 +150,6 @@ def custom_csd(x, y, nperseg=512,noverlap=256, dt=1E-5, norm=False, window=None,
     
     #faire le fftshift sur signals_ft
 
-
-
     ''' compute self-spectrum of x or cross-spectrum of x and y if y is different from x:
         The result is normalized by the effective noise bandwidth to get the rms power density '''
     if window is None:
@@ -170,6 +168,9 @@ def custom_csd(x, y, nperseg=512,noverlap=256, dt=1E-5, norm=False, window=None,
     
 
     return frq, spec
+
+
+
 
 
 

@@ -123,22 +123,25 @@ def custom_csd(x, y, nperseg=512,noverlap=256, dt=1E-5, norm=False, window=None,
         if norm:
             sig = normalize_array_2d(sig, axis=0)     
 
-        if window == 'hanning':
-            W = np.hanning(nperseg)
-            sig *= W
-        elif window == 'hamming':
-            W = np.hamming(nperseg)
-            sig *= W
-        elif window == 'bartlett':
-            W = np.bartlett(nperseg)
-            sig *= W        
-        elif window == 'blackman':
-            W = np.blackman(nperseg)
-            sig *= W        
-        elif window == 'kaiser':
-            W = np.kaiser(nperseg)
-            sig *= W
-        
+        if window is not None:
+            if window == 'hanning':
+                W = np.hanning(nperseg)
+                sig *= W
+            elif window == 'hamming':
+                W = np.hamming(nperseg)
+                sig *= W
+            elif window == 'bartlett':
+                W = np.bartlett(nperseg)
+                sig *= W        
+            elif window == 'blackman':
+                W = np.blackman(nperseg)
+                sig *= W        
+            elif window == 'kaiser':
+                W = np.kaiser(nperseg)
+                sig *= W
+            else:
+                print('Window {} not recognized'.format(window) + ' no windowing applied')
+                window=None
         
         '''FFT'''
         signals_ft[i] = fft.fft(sig)

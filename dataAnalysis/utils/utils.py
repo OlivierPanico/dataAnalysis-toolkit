@@ -147,7 +147,33 @@ def remove_outliers(array, q_inf, q_sup):
 
 
 
+def find_plateaus(arr):
+    '''
+    Find plateaus of len >= 2 on a 1D array
+    Returns a list of tuples (start, end) where start and end are the indices of the plateau
+    '''
+    plateaus = []
+    n = len(arr)
 
+    if n == 0:
+        return plateaus
+
+    start = 0
+
+    while start < n:
+        # Find the end of the current plateau
+        end = start
+        while end < n - 1 and arr[end] == arr[end + 1]:
+            end += 1
+
+        # If a plateau is found, record its start and end indices
+        if end > start:
+            plateaus.append((start, end))
+        
+        # Move to the next potential plateau
+        start = end + 1
+
+    return plateaus
 
 
 
